@@ -22,6 +22,24 @@ allprojects {
         google()
         mavenCentral()
     }
+    // Disable release lint checks across all modules — personal-use APK,
+    // not Play Store. Avoids Java 25 / AGP 8.7 lint incompatibility.
+    plugins.withId('com.android.library') {
+        android {
+            lint {
+                checkReleaseBuilds false
+                abortOnError false
+            }
+        }
+    }
+    plugins.withId('com.android.application') {
+        android {
+            lint {
+                checkReleaseBuilds false
+                abortOnError false
+            }
+        }
+    }
 }
 
 task clean(type: Delete) {

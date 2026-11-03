@@ -1,5 +1,5 @@
 // GPS service — wraps @capacitor-community/background-geolocation.
-// PRIVACY: position data is passed to callbacks only; never stored or logged.
+// PRIVACY: position data is used in memory only, never stored or logged.
 
 import { registerPlugin } from '@capacitor/core';
 import type { BackgroundGeolocationPlugin, Location, CallbackError } from '@capacitor-community/background-geolocation';

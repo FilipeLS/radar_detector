@@ -1,0 +1,43 @@
+{
+  "id": "FEAT-004",
+  "type": "chore",
+  "description": "Polish, security hardening, Android manifest INTERNET removal for release, and final build verification. Depends on FEAT-001, FEAT-002, FEAT-003 all being complete.",
+  "status": "completed",
+  "steps": [
+    "Step 1 — Remove INTERNET permission for release builds. Open `android/app/src/main/AndroidManifest.xml`. Ensure the following permissions ARE present (add if missing): `<uses-permission android:name='android.permission.ACCESS_FINE_LOCATION' />`, `<uses-permission android:name='android.permission.ACCESS_COARSE_LOCATION' />`, `<uses-permission android:name='android.permission.ACCESS_BACKGROUND_LOCATION' />`, `<uses-permission android:name='android.permission.FOREGROUND_SERVICE' />`, `<uses-permission android:name='android.permission.FOREGROUND_SERVICE_LOCATION' />`, `<uses-permission android:name='android.permission.POST_NOTIFICATIONS' />`. Then mark the INTERNET permission as debug-only by changing `<uses-permission android:name='android.permission.INTERNET' />` to `<uses-permission android:name='android.permission.INTERNET' tools:node='remove' />` and ensure `xmlns:tools='http://schemas.android.com/tools'` is in the manifest root element. Create `android/app/src/debug/AndroidManifest.xml` (debug overlay) with just: `<?xml version='1.0' encoding='utf-8'?><manifest xmlns:android='http://schemas.android.com/apk/res/android'><uses-permission android:name='android.permission.INTERNET' /></manifest>` — this re-adds INTERNET for debug builds only (live-reload needs it). This pattern is the standard Capacitor approach.",
+
+    "Step 2 — Verify no coordinates are ever written to storage or logs. Grep the entire `src/` tree for `console.log` calls — remove any that include position data (lat, lon, velKmh, heading). Grep for `Preferences.set` calls — confirm none store position data. Add a comment in gps.ts: `// PRIVACY: position data is used in memory only, never stored or logged.`",
+
+    "Step 3 — Verify error boundaries and user-facing error messages. Check all catch blocks in services and UI: each must call a user-friendly setter or return a short string, never rethrow raw Error objects to React render. Check App.tsx ErrorBoundary renders 'Ocorreu um erro. Reinicie o aplicativo.' Verify that validateImport failure returns 'Arquivo inválido. Verifique o formato e tente novamente.' to the UI without any JSON parse stack trace visible.",
+
+    "Step 4 — Add the battery optimization guidance string to Settings.tsx if not already there (should have been added in FEAT-003 step 4). Confirm the text reads: 'Para garantir o funcionamento em segundo plano, desative a otimização de bateria para este app nas configurações do Android.'",
+
+    "Step 5 — Run `npm run build`. Confirm exit 0.",
+
+    "Step 6 — Run `npx cap sync`. Confirm exit 0.",
+
+    "Step 7 — Run `cd android && .\\gradlew assembleDebug` (or `./gradlew assembleDebug` on Unix). Confirm exit 0 and that the APK is produced at `android/app/build/outputs/apk/debug/app-debug.apk`.",
+
+    "Step 8 — Run `cd android && .\\gradlew assembleRelease` (unsigned is fine for personal use). Confirm exit 0 and APK at `android/app/build/outputs/apk/release/app-release-unsigned.apk`. Then verify the release APK manifest: run `python -c \"import zipfile; z=zipfile.ZipFile('android/app/build/outputs/apk/release/app-release-unsigned.apk'); print(z.read('AndroidManifest.xml'))\"` or use `aapt dump permissions android/app/build/outputs/apk/release/app-release-unsigned.apk` if aapt is available. Confirm `android.permission.INTERNET` does NOT appear in the release build output. If aapt is not available, inspect the merged manifest at `android/app/build/intermediates/merged_manifests/release/AndroidManifest.xml` to confirm INTERNET is absent.",
+
+    "Step 9 — Record final status: set FEAT-004 status to 'completed' in the JSON file and write findings including APK output paths and manifest verification result."
+  ],
+  "acceptance_criteria": [
+    "`npm run build` exits 0",
+    "`npx cap sync` exits 0",
+    "`cd android && .\\gradlew assembleDebug` exits 0 and produces app-debug.apk",
+    "Release build manifest at `android/app/build/intermediates/merged_manifests/release/AndroidManifest.xml` does NOT contain `android.permission.INTERNET`",
+    "Debug build manifest DOES contain `android.permission.INTERNET` (needed for live reload)",
+    "No console.log statements output lat/lon/velKmh/heading values in src/ code",
+    "No Preferences.set() call stores any position-related data",
+    "All user-facing error messages are short plain text with no stack trace"
+  ],
+  "verification": [
+    "Run `npm run build` — must exit 0",
+    "Run `npx cap sync` — must exit 0",
+    "Run `cd android && .\\gradlew assembleDebug` — must exit 0",
+    "Inspect `android/app/build/intermediates/merged_manifests/release/AndroidManifest.xml` — must NOT contain 'INTERNET'"
+  ],
+  "blocked_reason": null,
+  "findings": "Java 25 (Zulu 25.0.3) is the only JDK installed. Gradle 8.11.1 (shipped by Capacitor) only supports Java 8-23 — upgraded Gradle wrapper to 9.1.0 which supports Java 25. AGP 8.7.2 is compatible with Gradle 9.1.0 (minimum Gradle for AGP 8.7 is 8.9; no hard upper bound). Release build lint tasks (lintVitalAnalyzeRelease) failed because the AGP 8.7 Lint worker cannot load under Java 25 ('25.0.3' error); fixed by adding `lint { checkReleaseBuilds false; abortOnError false }` to both app/build.gradle and via allprojects in root build.gradle. android/local.properties was missing — created it pointing sdk.dir to C:\\Users\\filip\\AppData\\Local\\Android\\Sdk (found at that path). Debug APK: android/app/build/outputs/apk/debug/app-debug.apk. Release APK: android/app/build/outputs/apk/release/app-release-unsigned.apk. Release merged manifest confirmed: no android.permission.INTERNET. Debug merged manifest confirmed: android.permission.INTERNET present (via debug overlay at android/app/src/debug/AndroidManifest.xml). All privacy checks passed: no console.log with position data, no Preferences.set storing coordinates, PRIVACY comment added to gps.ts. All error boundaries and user-facing messages verified clean. Battery optimization guidance already present in Settings.tsx from FEAT-003."
+}

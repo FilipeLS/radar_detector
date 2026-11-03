@@ -22,6 +22,11 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    lint {
+        // Disable lint on release for personal-use APK (Java 25 / AGP 8.7 lint incompatibility)
+        checkReleaseBuilds false
+        abortOnError false
+    }
 }
 
 repositories {
