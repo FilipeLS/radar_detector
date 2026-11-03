@@ -2,20 +2,25 @@
 
 .speedo-wrap {
   width: 100%;
-  max-width: 300px;
+  max-width: 320px;
   margin: 0 auto;
+  overflow: visible;   /* never clip the arc */
 }
 
 .speedo-svg {
   width: 100%;
   height: auto;
   display: block;
+  overflow: visible;   /* SVG itself must not clip either */
   filter: drop-shadow(0 0 12px rgba(226, 185, 74, 0.15));
 }
 
-/* Smooth needle rotation */
-.speedo-needle {
-  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+/* Smooth needle movement */
+.speedo-needle line {
+  transition: x1 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              y1 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              x2 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              y2 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* Smooth arc color change */

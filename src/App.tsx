@@ -1,6 +1,6 @@
 // App.tsx — wires all services together and renders the active screen.
 
-import { Component, useEffect, useRef, useState } from 'react';
+import { Component, useEffect, useRef, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { KeepAwake } from '@capacitor-community/keep-awake';
 
@@ -103,6 +103,7 @@ function App() {
   const [mergedDataset, setMergedDataset] = useState<DatasetJson>({ meta: {}, pontos: [] });
 
   const dispatcherRef = useRef<AlertDispatcher | null>(null);
+  const currentAlertIdRef = useRef<string | null>(null); // Track current visual alert
 
   // Load persisted state on mount
   useEffect(() => {
@@ -122,7 +123,13 @@ function App() {
       setDisclaimerSeen(seen);
 
       dispatcherRef.current = new AlertDispatcher(merged, s, (ev) => {
-        setVisualAlert(ev);
+        // Only update visual alert if it's a NEW alert (different id or stage)
+        const newAlertId = `${ev.id}-${ev.etapa}`;
+        if (currentAlertIdRef.current !== newAlertId) {
+          currentAlertIdRef.current = newAlertId;
+          setVisualAlert(ev);
+        }
+        // Always update nextEvent for the info panel
         setNextEvent(ev);
       });
 
@@ -233,9 +240,10 @@ function App() {
   // -------------------------------------------------------------------------
   // Visual alert
   // -------------------------------------------------------------------------
-  const dismissVisualAlert = (): void => {
+  const dismissVisualAlert = useCallback((): void => {
     setVisualAlert(null);
-  };
+    currentAlertIdRef.current = null; // Clear the current alert ID
+  }, []);
 
   // -------------------------------------------------------------------------
   // Loading splash

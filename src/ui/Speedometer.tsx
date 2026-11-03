@@ -1,233 +1,184 @@
-// Speedometer — analogue aviation-style gauge rendered in pure SVG.
-// Arc spans from -225° to 45° (270° sweep), 0–200 km/h.
-// Needle rotates smoothly via CSS transition.
-// Arc color: green → amber → red based on speed vs limit.
+// Speedometer — aviation-style analogue gauge in pure SVG.
+//
+// Angle convention (used everywhere consistently):
+//   0° = top (12 o'clock), clockwise positive  — same as "clock degrees"
+//
+// Arc sweep: 225° (7 o'clock) → 495° = 135° (5 o'clock)  — 270° total
+//   0 km/h  → 225°  (bottom-left,  ~7 o'clock)
+//   200 km/h→ 135°  (bottom-right, ~5 o'clock)  [225 + 270 = 495 mod 360 = 135]
 
 import './Speedometer.css';
 
 interface SpeedometerProps {
-  speed: number;       // current speed km/h
-  limit: number;       // speed limit km/h (0 = unknown)
+  speed: number;
+  limit: number;
   isMonitoring: boolean;
 }
 
-const CX = 150;        // SVG centre x
-const CY = 155;        // SVG centre y (slightly below centre for arc room)
-const R_ARC = 120;     // arc radius
-const R_TICK_OUTER = 108;
-const R_TICK_INNER_MAJ = 94;
-const R_TICK_INNER_MIN = 100;
-const R_LABEL = 80;
+// ── Layout constants ──────────────────────────────────────────────────────────
+const VW   = 300;   // viewBox width
+const VH   = 300;   // viewBox height — extra room below for readout in the gap
+const CX   = 150;   // gauge centre x
+const CY   = 148;   // gauge centre y — higher so bottom gap is visible
+const R    = 108;   // arc/tick-outer radius
+const R_TI_MAJ = 92; // tick inner — major
+const R_TI_MIN = 98; // tick inner — minor
+const R_LBL    = 74; // label radius
 
-const START_DEG = 225;   // angle at 0 km/h (measuring from 3-o'clock, clockwise)
-const SWEEP_DEG = 270;   // total sweep
-const MAX_KMH = 200;
+const MAX_KMH   = 200;
+const ANG_START = 225;   // degrees at 0 km/h  (clock convention)
+const ANG_SWEEP = 270;   // total sweep
 
-/** Convert km/h to SVG rotation angle (degrees from SVG 0°=3-o'clock) */
-function speedToDeg(kmh: number): number {
-  const clamped = Math.max(0, Math.min(kmh, MAX_KMH));
-  const fraction = clamped / MAX_KMH;
-  // 0 km/h → -225° (i.e. 135°), 200 km/h → 45°
-  return -START_DEG + fraction * SWEEP_DEG;
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Polar to Cartesian */
-function polar(cx: number, cy: number, r: number, angleDeg: number) {
+/** Clock-degrees → SVG cartesian  (0° = top, clockwise) */
+function polar(r: number, angleDeg: number, cx = CX, cy = CY) {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
-  return {
-    x: cx + r * Math.cos(rad),
-    y: cy + r * Math.sin(rad),
-  };
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-/** Build SVG arc path between two angles */
-function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: number): string {
-  const s = polar(cx, cy, r, startDeg);
-  const e = polar(cx, cy, r, endDeg);
-  const largeArc = endDeg - startDeg > 180 ? 1 : 0;
-  return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 1 ${e.x} ${e.y}`;
+/** km/h → clock-degrees position on arc */
+function kmhToDeg(kmh: number): number {
+  return ANG_START + (Math.max(0, Math.min(kmh, MAX_KMH)) / MAX_KMH) * ANG_SWEEP;
 }
 
-/** Arc start/end in "clock" degrees (0=top, clockwise) */
-const ARC_START = 360 - START_DEG; // = 135°
-const ARC_END = ARC_START + SWEEP_DEG; // = 405° = 45°
-
-function speedToArcEnd(kmh: number): number {
-  return ARC_START + (Math.min(kmh, MAX_KMH) / MAX_KMH) * SWEEP_DEG;
+/** SVG arc-path between two clock-degree angles */
+function arcPath(r: number, a1: number, a2: number): string {
+  const s = polar(r, a1);
+  const e = polar(r, a2);
+  // normalise sweep so we always go clockwise
+  let sweep = ((a2 - a1) % 360 + 360) % 360;
+  const large = sweep > 180 ? 1 : 0;
+  return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
 }
 
-/** Color based on speed vs limit */
-function needleColor(speed: number, limit: number): string {
-  if (limit <= 0) return '#e2b94a';          // amber — no limit info
-  if (speed < limit * 0.85) return '#22c55e'; // green — well under
-  if (speed < limit) return '#e2b94a';        // amber — approaching
-  return '#ef4444';                           // red — over limit
+/** Colour based on speed vs limit */
+function gaugeColor(speed: number, limit: number, active: boolean): string {
+  if (!active)      return '#2d3748';
+  if (limit <= 0)   return '#e2b94a';
+  if (speed < limit * 0.85) return '#22c55e';
+  if (speed < limit)        return '#e2b94a';
+  return '#ef4444';
 }
 
-function arcColor(speed: number, limit: number): string {
-  return needleColor(speed, limit);
-}
+// ── Pre-compute ticks & labels (static) ──────────────────────────────────────
+const TICKS: { d: string; major: boolean }[] = [];
+const LBLS:  { x: number; y: number; text: string }[] = [];
 
-/** Build tick marks and labels */
-function buildTicks() {
-  const ticks: { path: string; major: boolean }[] = [];
-  const labels: { x: number; y: number; text: string }[] = [];
+for (let v = 0; v <= MAX_KMH; v += 10) {
+  const major = v % 20 === 0;
+  const ang   = kmhToDeg(v);
+  const po    = polar(R, ang);
+  const pi    = polar(major ? R_TI_MAJ : R_TI_MIN, ang);
+  TICKS.push({ d: `M ${po.x.toFixed(2)} ${po.y.toFixed(2)} L ${pi.x.toFixed(2)} ${pi.y.toFixed(2)}`, major });
 
-  for (let kmh = 0; kmh <= MAX_KMH; kmh += 10) {
-    const major = kmh % 20 === 0;
-    const angleDeg = ARC_START + (kmh / MAX_KMH) * SWEEP_DEG;
-    const outer = polar(CX, CY, R_TICK_OUTER, angleDeg);
-    const inner = polar(CX, CY, major ? R_TICK_INNER_MAJ : R_TICK_INNER_MIN, angleDeg);
-    ticks.push({ path: `M ${outer.x} ${outer.y} L ${inner.x} ${inner.y}`, major });
-
-    if (major && kmh % 40 === 0) {
-      const lp = polar(CX, CY, R_LABEL, angleDeg);
-      labels.push({ x: lp.x, y: lp.y, text: String(kmh) });
-    }
+  // label every 20 km/h (all major ticks)
+  if (major) {
+    const pl = polar(R_LBL, ang);
+    LBLS.push({ x: pl.x, y: pl.y, text: String(v) });
   }
-  return { ticks, labels };
 }
 
-const { ticks, labels } = buildTicks();
-
+// ── Component ─────────────────────────────────────────────────────────────────
 export function Speedometer({ speed, limit, isMonitoring }: SpeedometerProps) {
-  const clampedSpeed = Math.max(0, Math.min(speed, MAX_KMH));
-  const rotation = speedToDeg(clampedSpeed);
-  const color = isMonitoring ? needleColor(speed, limit) : '#4b5563';
-  const activeArcEnd = speedToArcEnd(clampedSpeed);
-  const activeArcColor = isMonitoring ? arcColor(speed, limit) : '#2d3748';
+  const color       = gaugeColor(speed, limit, isMonitoring);
+  const needleAngle = kmhToDeg(Math.max(0, Math.min(speed, MAX_KMH)));
+  const arcEnd      = kmhToDeg(Math.max(0, Math.min(speed, MAX_KMH)));
+
+  // Calculate needle endpoints using polar coordinates
+  const needleTip  = polar(R - 14, needleAngle);
+  const needleBase = polar(10, needleAngle);
+  const needleTail = polar(18, needleAngle + 180); // opposite direction
 
   return (
     <div className="speedo-wrap" aria-hidden="true">
-      <svg
-        viewBox="0 0 300 230"
-        className="speedo-svg"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        {/* ── Background arc (track) ── */}
+      <svg viewBox={`0 0 ${VW} ${VH}`} className="speedo-svg" xmlns="http://www.w3.org/2000/svg">
+
+        {/* ── Track arc ── */}
         <path
-          d={arcPath(CX, CY, R_ARC, ARC_START, ARC_END)}
-          fill="none"
-          stroke="#1e2533"
-          strokeWidth="14"
-          strokeLinecap="round"
+          d={arcPath(R, ANG_START, ANG_START + ANG_SWEEP)}
+          fill="none" stroke="#1e2533" strokeWidth="13" strokeLinecap="round"
         />
 
-        {/* ── Active arc (speed fill) ── */}
-        {clampedSpeed > 0 && (
+        {/* ── Active arc (filled up to current speed) ── */}
+        {speed > 0 && (
           <path
-            d={arcPath(CX, CY, R_ARC, ARC_START, activeArcEnd)}
-            fill="none"
-            stroke={activeArcColor}
-            strokeWidth="14"
-            strokeLinecap="round"
+            d={arcPath(R, ANG_START, arcEnd)}
+            fill="none" stroke={color} strokeWidth="13" strokeLinecap="round"
             className="speedo-active-arc"
           />
         )}
 
-        {/* ── Limit marker (small triangle on arc) ── */}
-        {limit > 0 && (
-          <>
-            {(() => {
-              const limitDeg = ARC_START + (Math.min(limit, MAX_KMH) / MAX_KMH) * SWEEP_DEG;
-              const p1 = polar(CX, CY, R_ARC + 10, limitDeg);
-              const p2 = polar(CX, CY, R_ARC + 18, limitDeg - 4);
-              const p3 = polar(CX, CY, R_ARC + 18, limitDeg + 4);
-              return (
-                <polygon
-                  points={`${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`}
-                  fill="#ef4444"
-                  opacity="0.9"
-                />
-              );
-            })()}
-          </>
-        )}
+        {/* ── Speed-limit marker (red triangle outside arc) ── */}
+        {limit > 0 && (() => {
+          const ld = kmhToDeg(Math.min(limit, MAX_KMH));
+          const p1 = polar(R + 8,  ld);
+          const p2 = polar(R + 17, ld - 4);
+          const p3 = polar(R + 17, ld + 4);
+          return (
+            <polygon
+              points={`${p1.x.toFixed(1)},${p1.y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)} ${p3.x.toFixed(1)},${p3.y.toFixed(1)}`}
+              fill="#ef4444" opacity="0.9"
+            />
+          );
+        })()}
 
         {/* ── Tick marks ── */}
-        {ticks.map((t, i) => (
-          <path
-            key={i}
-            d={t.path}
+        {TICKS.map((t, i) => (
+          <path key={i} d={t.d}
             stroke={t.major ? '#6b7280' : '#374151'}
             strokeWidth={t.major ? 2 : 1}
           />
         ))}
 
-        {/* ── Labels ── */}
-        {labels.map((l, i) => (
-          <text
-            key={i}
-            x={l.x}
-            y={l.y}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize="13"
-            fill="#6b7280"
-            fontFamily="system-ui, sans-serif"
-            fontWeight="600"
+        {/* ── Numeric labels ── */}
+        {LBLS.map((l, i) => (
+          <text key={i} x={l.x} y={l.y}
+            textAnchor="middle" dominantBaseline="middle"
+            fontSize="12" fill="#6b7280"
+            fontFamily="system-ui, sans-serif" fontWeight="600"
           >
             {l.text}
           </text>
         ))}
 
-        {/* ── Needle ── */}
-        <g
-          className="speedo-needle"
-          style={{ transform: `rotate(${rotation}deg)`, transformOrigin: `${CX}px ${CY}px` }}
-        >
-          {/* needle body */}
-          <line
-            x1={CX}
-            y1={CY + 14}
-            x2={CX}
-            y2={CY - R_ARC + 16}
-            stroke={color}
-            strokeWidth="3"
-            strokeLinecap="round"
+        {/* ── Needle (drawn directly at the correct angle) ── */}
+        <g className="speedo-needle">
+          <line 
+            x1={needleBase.x} y1={needleBase.y}
+            x2={needleTip.x} y2={needleTip.y}
+            stroke={color} strokeWidth="3" strokeLinecap="round"
           />
-          {/* needle tail */}
-          <line
-            x1={CX}
-            y1={CY + 14}
-            x2={CX}
-            y2={CY + 22}
-            stroke={color}
-            strokeWidth="4"
-            strokeLinecap="round"
-            opacity="0.5"
+          <line 
+            x1={CX} y1={CY}
+            x2={needleTail.x} y2={needleTail.y}
+            stroke={color} strokeWidth="4" strokeLinecap="round" opacity="0.45"
           />
         </g>
 
-        {/* ── Centre hub ── */}
-        <circle cx={CX} cy={CY} r="10" fill="#0f1117" stroke={color} strokeWidth="2.5" />
-        <circle cx={CX} cy={CY} r="4" fill={color} />
+        {/* ── Hub ── */}
+        <circle cx={CX} cy={CY} r="11" fill="#0a0d12" stroke={color} strokeWidth="2.5" />
+        <circle cx={CX} cy={CY} r="4.5" fill={color} />
 
-        {/* ── Digital speed readout ── */}
+        {/* ── Digital readout — in the gap at the bottom of the arc (6 o'clock) ── */}
         <text
-          x={CX}
-          y={CY + 44}
-          textAnchor="middle"
-          fontSize="38"
-          fontWeight="900"
+          x={CX} y={CY + 52}
+          textAnchor="middle" fontSize="42" fontWeight="900"
           fill={color}
           fontFamily="system-ui, 'Segoe UI', monospace"
           letterSpacing="-1"
+          className="speedo-active-arc"
         >
-          {Math.round(speed)}
+          {Math.round(Math.max(0, speed))}
         </text>
         <text
-          x={CX}
-          y={CY + 62}
-          textAnchor="middle"
-          fontSize="12"
-          fill="#6b7280"
-          fontFamily="system-ui, sans-serif"
-          fontWeight="500"
-          letterSpacing="1"
+          x={CX} y={CY + 74}
+          textAnchor="middle" fontSize="11" fill="#6b7280"
+          fontFamily="system-ui, sans-serif" fontWeight="600" letterSpacing="2"
         >
           KM/H
         </text>
+
       </svg>
     </div>
   );

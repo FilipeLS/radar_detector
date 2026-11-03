@@ -1,99 +1,73 @@
-// Audio service — Web Audio API for beeps/alarms, TTS for voice alerts.
-// Routes audio through the alarm channel on Android via TTS category:'alarm'.
+// Audio service — Web Audio API only. No TTS/voice.
+// etapa 1: single short beep
+// etapa 2: 3 cycles × 3 beeps spread across 10s red overlay
 
-import { TextToSpeech } from '@capacitor-community/text-to-speech';
-
-// Lazily created, shared AudioContext instance
 let audioCtx: AudioContext | null = null;
 
 function getAudioContext(): AudioContext {
-  if (!audioCtx) {
-    audioCtx = new AudioContext();
-  }
+  if (!audioCtx) audioCtx = new AudioContext();
   return audioCtx;
 }
 
+/** Short single beep — etapa 1 */
 export async function playBip(): Promise<void> {
   const ctx = getAudioContext();
-  const oscillator = ctx.createOscillator();
-  const gainNode = ctx.createGain();
-
-  oscillator.connect(gainNode);
-  gainNode.connect(ctx.destination);
-
-  oscillator.type = 'sine';
-  oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-  gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
-  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-
-  oscillator.start(ctx.currentTime);
-  oscillator.stop(ctx.currentTime + 0.3);
+  const osc  = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(880, ctx.currentTime);
+  gain.gain.setValueAtTime(0.5, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.3);
 }
 
+/** Triple alarm — 3 cycles × 3 beeps spread evenly across 10s.
+ *  Each beep: 0.4s with small gap
+ *  Each cycle: 3 beeps × (0.4s beep + 0.1s gap) = 1.5s
+ *  Total beep time: 3 cycles × 1.5s = 4.5s
+ *  Remaining time: 10s - 4.5s = 5.5s
+ *  Gap between cycles: 5.5s / 2 = 2.75s
+ *  Timeline: [cycle1: 0s-1.5s] [gap: 2.75s] [cycle2: 4.25s-5.75s] [gap: 2.75s] [cycle3: 8.5s-10s]
+ *  Called ONCE per alert event — never call again during the same overlay. */
 export async function playAlarm(): Promise<void> {
-  const ctx = getAudioContext();
+  const ctx           = getAudioContext();
+  const beepDuration  = 0.4;   // seconds per beep (longer, more audible)
+  const beepGap       = 0.1;   // tiny gap between beeps in same cycle
+  const beepsPerCycle = 3;
+  const cycles        = 3;
+  const cycleGap      = 2.75;  // gap between cycles to spread across 10s
 
-  const cycleLength = 0.5; // seconds per cycle
-  const cycles = 3;
+  let t = ctx.currentTime;
 
-  for (let i = 0; i < cycles; i++) {
-    const start = ctx.currentTime + i * cycleLength;
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
-
-    oscillator.type = 'sawtooth';
-    oscillator.frequency.setValueAtTime(440, start);
-    oscillator.frequency.linearRampToValueAtTime(880, start + cycleLength * 0.8);
-    gainNode.gain.setValueAtTime(0.8, start);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, start + cycleLength);
-
-    oscillator.start(start);
-    oscillator.stop(start + cycleLength);
+  for (let c = 0; c < cycles; c++) {
+    // Play 3 beeps in quick succession
+    for (let i = 0; i < beepsPerCycle; i++) {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(440, t);
+      osc.frequency.linearRampToValueAtTime(880, t + beepDuration * 0.8);
+      gain.gain.setValueAtTime(0.8, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + beepDuration);
+      osc.start(t);
+      osc.stop(t + beepDuration);
+      t += beepDuration + beepGap;
+    }
+    // Add gap before next cycle (except after the last cycle)
+    if (c < cycles - 1) t += cycleGap;
   }
 }
 
-export async function speak(text: string, volume: number): Promise<void> {
-  try {
-    await TextToSpeech.speak({
-      text,
-      lang: 'pt-BR',
-      rate: 1.0,
-      pitch: 1.0,
-      volume,
-      category: 'alarm',
-    });
-  } catch {
-    // Log a non-sensitive message — never log coordinates or user data
-    console.warn('[audio] TTS falhou; usando apenas som.');
-  }
-}
-
-export async function playAlert(
-  som: 'aviso' | 'alarme',
-  mensagem: string,
-  vozAtiva: boolean,
-  volume: number
-): Promise<void> {
-  // Play the sound first so it happens even if TTS fails
+/** Dispatches the correct sound for each alert step. No voice. */
+export async function playAlert(som: 'aviso' | 'alarme'): Promise<void> {
   if (som === 'aviso') {
     await playBip();
   } else {
     await playAlarm();
-  }
-
-  if (vozAtiva) {
-    try {
-      await speak(mensagem, volume);
-    } catch {
-      // speak() already suppresses its own errors; fall back to alarm if voice fails
-      if (som === 'aviso') {
-        await playBip();
-      } else {
-        await playAlarm();
-      }
-    }
   }
 }

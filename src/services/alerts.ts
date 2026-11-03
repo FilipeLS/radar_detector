@@ -4,7 +4,7 @@
 import { AlertEngine } from '../lib/alertEngine';
 import type { AlertEvent, DatasetJson } from '../lib/alertEngine';
 import type { AppSettings } from '../types';
-import { playAlert, speak, playAlarm } from './audio';
+import { playAlert } from './audio';
 
 export type { AlertEvent };
 
@@ -12,44 +12,40 @@ export type VisualAlertCallback = (event: AlertEvent) => void;
 
 export class AlertDispatcher {
   private engine: AlertEngine;
-  private settings: AppSettings;
   private onVisualAlert: VisualAlertCallback;
+  private lastSoundAlertId: string | null = null; // Track last SOUND to prevent duplicate audio
 
   constructor(
     dataset: DatasetJson,
     settings: AppSettings,
     onVisualAlert: VisualAlertCallback
   ) {
-    this.settings = settings;
     this.onVisualAlert = onVisualAlert;
     this.engine = new AlertEngine(dataset, { tiposAtivos: settings.tiposAtivos });
   }
 
   handle(pos: { lat: number; lon: number; velKmh: number; heading: number | null }): void {
     const events = this.engine.atualizar(pos);
-    // Engine returns at most 1 event per call — no extra deduplication needed
+    // Engine returns at most 1 event per call
     for (const ev of events) {
-      // Fire proximity alert audio (non-blocking; errors swallowed inside playAlert)
-      void playAlert(ev.som, ev.mensagem, this.settings.vozAtiva, this.settings.volume);
-
-      // R6: when "avisar também quando acima do limite" is enabled, fire an extra
-      // audio cue if the driver is already over the speed limit at this checkpoint.
-      if (this.settings.avisarAcimaLimite && ev.acimaDoLimite) {
-        void (async () => {
-          try {
-            const limMsg = `Você está acima do limite de ${ev.limiteKmh} km/h`;
-            if (this.settings.vozAtiva) {
-              await speak(limMsg, this.settings.volume);
-            } else {
-              await playAlarm();
-            }
-          } catch {
-            // Extra cue failing must never silence the primary alert
+      // Create unique alert ID based on point id and stage
+      const alertId = `${ev.id}-${ev.etapa}`;
+      
+      // Only fire audio if this is a NEW alert (not the same point + stage as last sound)
+      if (this.lastSoundAlertId !== alertId) {
+        void playAlert(ev.som);
+        this.lastSoundAlertId = alertId;
+        
+        // Clear the sound alert ID after the overlay duration to allow re-triggering
+        const duration = ev.visual === 'amarelo' ? 5000 : 10000;
+        setTimeout(() => {
+          if (this.lastSoundAlertId === alertId) {
+            this.lastSoundAlertId = null;
           }
-        })();
+        }, duration);
       }
 
-      // Pass visual alert to UI
+      // Always pass event to callback - the App component decides if visual should update
       if (ev.visual) {
         this.onVisualAlert(ev);
       }
@@ -57,7 +53,7 @@ export class AlertDispatcher {
   }
 
   recreate(dataset: DatasetJson, settings: AppSettings): void {
-    this.settings = settings;
     this.engine = new AlertEngine(dataset, { tiposAtivos: settings.tiposAtivos });
+    this.lastSoundAlertId = null; // Reset on recreate
   }
 }

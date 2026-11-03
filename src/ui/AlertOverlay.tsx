@@ -13,7 +13,7 @@ interface AlertOverlayProps {
 }
 
 const YELLOW_DURATION_MS = 5_000;
-const RED_DURATION_MS = 8_000;
+const RED_DURATION_MS = 10_000;
 
 // Vibration patterns (ms): [vibrate, pause, vibrate, ...]
 const VIB_ETAPA1 = [200];          // single short buzz
@@ -47,14 +47,34 @@ function vibrate(pattern: number[]): void {
 export function AlertOverlay({ alert, onDismiss, isNightMode }: AlertOverlayProps) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastAlertIdRef = useRef<string | null>(null);
   const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
-    if (!alert) return;
+    if (!alert) {
+      setCountdown(0);
+      return;
+    }
+
+    // Create unique ID for this alert to prevent restarts
+    const alertId = `${alert.id}-${alert.etapa}`;
+    
+    // If this is the SAME alert already running, don't restart timers
+    if (lastAlertIdRef.current === alertId) {
+      return;
+    }
+    
+    lastAlertIdRef.current = alertId;
 
     // Clear any previous timers
-    if (timerRef.current !== null) clearTimeout(timerRef.current);
-    if (countdownRef.current !== null) clearInterval(countdownRef.current);
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (countdownRef.current !== null) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
 
     const duration = alert.visual === 'amarelo' ? YELLOW_DURATION_MS : RED_DURATION_MS;
     const seconds = Math.round(duration / 1000);
@@ -62,20 +82,25 @@ export function AlertOverlay({ alert, onDismiss, isNightMode }: AlertOverlayProp
     // Vibrate
     vibrate(alert.visual === 'amarelo' ? VIB_ETAPA1 : VIB_ETAPA2);
 
-    // Countdown
+    // Countdown - start immediately
     setCountdown(seconds);
+    
+    let currentCount = seconds;
     countdownRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          if (countdownRef.current !== null) clearInterval(countdownRef.current);
-          return 0;
+      currentCount--;
+      setCountdown(currentCount);
+      
+      if (currentCount <= 0) {
+        if (countdownRef.current !== null) {
+          clearInterval(countdownRef.current);
+          countdownRef.current = null;
         }
-        return prev - 1;
-      });
+      }
     }, 1000);
 
     // Auto-dismiss
     timerRef.current = setTimeout(() => {
+      lastAlertIdRef.current = null;
       onDismiss();
     }, duration);
 
@@ -83,8 +108,7 @@ export function AlertOverlay({ alert, onDismiss, isNightMode }: AlertOverlayProp
       if (timerRef.current !== null) clearTimeout(timerRef.current);
       if (countdownRef.current !== null) clearInterval(countdownRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alert]);
+  }, [alert, onDismiss]);
 
   if (!alert) return null;
 
