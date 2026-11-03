@@ -1,0 +1,155 @@
+/* Settings screen — dark theme */
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
+}
+
+.settings__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #374151;
+}
+
+.settings__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.settings__close-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.settings__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.settings__section {
+  padding: 16px 20px 8px;
+}
+
+.settings__section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.settings__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 4px 0;
+  border-bottom: 1px solid #2d2d2d;
+}
+
+.settings__row-label {
+  font-size: 16px;
+  color: #e5e7eb;
+}
+
+.settings__row-sub {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* Toggle switch */
+.toggle {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.toggle__input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggle__track {
+  display: block;
+  width: 52px;
+  height: 28px;
+  background-color: #4b5563;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.toggle__track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggle__input:checked + .toggle__track {
+  background-color: #16a34a;
+}
+
+.toggle__input:checked + .toggle__track::after {
+  transform: translateX(24px);
+}
+
+/* Volume slider */
+.settings__slider {
+  width: 140px;
+  accent-color: #16a34a;
+}
+
+/* Battery info */
+.settings__battery-info {
+  font-size: 14px;
+  color: #9ca3af;
+  line-height: 1.5;
+  padding: 8px 0;
+}
+
+/* Save button */
+.settings__footer {
+  padding: 16px 20px 32px;
+}
+
+.settings__save-btn {
+  width: 100%;
+  height: 56px;
+  border: none;
+  border-radius: 12px;
+  background-color: #16a34a;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.settings__save-btn:active {
+  opacity: 0.85;
+}

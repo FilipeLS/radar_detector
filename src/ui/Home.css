@@ -1,0 +1,273 @@
+/* Home — dark driving screen */
+
+.home {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  padding: 0;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* Top status bar */
+.home__status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 8px;
+  font-size: 16px;
+}
+
+.home__gps-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.home__gps-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.home__gps-dot--ok {
+  background-color: #22c55e;
+  box-shadow: 0 0 6px #22c55e;
+}
+
+.home__gps-dot--off {
+  background-color: #6b7280;
+}
+
+.home__gps-label {
+  font-size: 16px;
+  font-weight: 500;
+  color: #d1d5db;
+}
+
+.home__mock-badge {
+  background-color: #7c3aed;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+}
+
+/* Speed block */
+.home__speed-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 20px 0 0;
+}
+
+.home__speed-value {
+  font-size: 88px;
+  font-weight: 900;
+  line-height: 1;
+  color: #ffffff;
+  letter-spacing: -2px;
+}
+
+.home__speed-unit {
+  font-size: 20px;
+  font-weight: 400;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* Next point info */
+.home__next-block {
+  padding: 12px 24px;
+  text-align: center;
+  min-height: 56px;
+}
+
+.home__next-tipo {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f5c518;
+}
+
+.home__next-detail {
+  font-size: 16px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+.home__next-empty {
+  font-size: 18px;
+  color: #4b5563;
+}
+
+/* Buttons */
+.home__buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.home__btn-primary {
+  height: 64px;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  color: #ffffff;
+  transition: opacity 0.15s ease;
+}
+
+.home__btn-primary:active {
+  opacity: 0.85;
+}
+
+.home__btn-primary--start {
+  background-color: #16a34a;
+}
+
+.home__btn-primary--stop {
+  background-color: #dc2626;
+}
+
+.home__btn-secondary {
+  height: 56px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  background-color: #374151;
+  color: #e5e7eb;
+  transition: opacity 0.15s ease;
+}
+
+.home__btn-secondary:active {
+  opacity: 0.85;
+}
+
+/* Settings link */
+.home__settings-link {
+  text-align: center;
+  padding: 12px 20px 24px;
+  font-size: 16px;
+  color: #9ca3af;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Mark radar bottom sheet */
+.mark-radar-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 500;
+  background-color: #232323;
+  border-top: 1px solid #374151;
+  border-radius: 16px 16px 0 0;
+  padding: 20px 20px 32px;
+}
+
+.mark-radar-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.mark-radar-sheet__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.mark-radar-sheet__close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.mark-radar-sheet__tipo-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.mark-radar-sheet__tipo-btn {
+  flex: 1 1 calc(33% - 8px);
+  min-width: 60px;
+  height: 48px;
+  border-radius: 8px;
+  border: 2px solid #4b5563;
+  background-color: #374151;
+  color: #e5e7eb;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.1s, background-color 0.1s;
+}
+
+.mark-radar-sheet__tipo-btn--selected {
+  border-color: #f5c518;
+  background-color: #4a3e00;
+  color: #f5c518;
+}
+
+.mark-radar-sheet__limit-row {
+  margin-bottom: 16px;
+}
+
+.mark-radar-sheet__limit-label {
+  font-size: 14px;
+  color: #9ca3af;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.mark-radar-sheet__limit-input {
+  width: 100%;
+  height: 48px;
+  border-radius: 8px;
+  border: 1px solid #4b5563;
+  background-color: #1f2937;
+  color: #ffffff;
+  font-size: 18px;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.mark-radar-sheet__error {
+  color: #f87171;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.mark-radar-sheet__save-btn {
+  width: 100%;
+  height: 56px;
+  border: none;
+  border-radius: 10px;
+  background-color: #16a34a;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+}
