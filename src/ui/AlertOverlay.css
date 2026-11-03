@@ -1,5 +1,6 @@
 /* AlertOverlay — yellow banner and red flashing full-screen overlay */
 
+/* ── Yellow banner (etapa 1) ── */
 .alert-banner-yellow {
   position: fixed;
   top: 0;
@@ -8,14 +9,34 @@
   z-index: 1000;
   background-color: #f5c518;
   color: #1a1a1a;
-  padding: 16px 20px;
-  text-align: center;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
+.alert-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.alert-message {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.alert-countdown {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1aaa;
+  min-width: 28px;
+  text-align: right;
+}
+
+/* ── Red flashing overlay (etapa 2) ── */
 .alert-overlay-red {
   position: fixed;
   top: 0;
@@ -24,10 +45,22 @@
   bottom: 0;
   z-index: 1000;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 16px;
   padding: 24px;
   animation: flash-red 500ms ease-in-out infinite alternate;
+}
+
+/* Night mode: dimmer red to avoid blinding the driver */
+.alert-overlay-red--night {
+  animation: flash-red-night 500ms ease-in-out infinite alternate;
+}
+
+.alert-overlay-red__icon {
+  font-size: 56px;
+  line-height: 1;
 }
 
 .alert-overlay-red__message {
@@ -38,13 +71,23 @@
   line-height: 1.3;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
   max-width: 90%;
+  margin: 0;
+}
+
+.alert-overlay-red__countdown {
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffcccc;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
 @keyframes flash-red {
-  from {
-    background-color: #cc0000;
-  }
-  to {
-    background-color: #ff4444;
-  }
+  from { background-color: #cc0000; }
+  to   { background-color: #ff4444; }
+}
+
+/* Night: cycle between dark red shades, much less bright */
+@keyframes flash-red-night {
+  from { background-color: #5a0000; }
+  to   { background-color: #8b0000; }
 }

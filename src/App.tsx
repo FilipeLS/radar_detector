@@ -74,7 +74,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryS
 // ---------------------------------------------------------------------------
 const DEFAULT_SETTINGS: AppSettings = {
   tiposAtivos: ['RF', 'RM', 'SR', 'SC', 'PRv', 'LOM'],
-  vozAtiva: true,
+  vozAtiva: false,
   volume: 0.8,
   manterTela: true,
   avisarAcimaLimite: false,

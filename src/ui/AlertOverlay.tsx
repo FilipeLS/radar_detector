@@ -1,43 +1,94 @@
 // AlertOverlay — renders yellow banner (etapa 1) or full-screen red flash (etapa 2).
+// Features: vibration, countdown timer, type icon, night-mode dimming.
 // Renders nothing when alert is null.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AlertEvent } from '../lib/alertEngine';
 import './AlertOverlay.css';
 
 interface AlertOverlayProps {
   alert: AlertEvent | null;
   onDismiss: () => void;
+  isNightMode: boolean;
 }
 
 const YELLOW_DURATION_MS = 5_000;
 const RED_DURATION_MS = 8_000;
 
-export function AlertOverlay({ alert, onDismiss }: AlertOverlayProps) {
+// Vibration patterns (ms): [vibrate, pause, vibrate, ...]
+const VIB_ETAPA1 = [200];          // single short buzz
+const VIB_ETAPA2 = [400, 150, 400, 150, 400]; // triple strong buzz
+
+// Emoji icon per radar type
+const TIPO_ICON: Record<string, string> = {
+  RF:  '📷',
+  RM:  '📷',
+  SR:  '🚦',
+  SC:  '🚦',
+  PRv: '🚔',
+  PED: '🛣️',
+  LOM: '〰️',
+};
+
+function tipoIcon(tipo: string): string {
+  return TIPO_ICON[tipo] ?? '⚠️';
+}
+
+function vibrate(pattern: number[]): void {
+  try {
+    if ('vibrate' in navigator) {
+      navigator.vibrate(pattern);
+    }
+  } catch {
+    // Non-fatal — vibration not available in browser
+  }
+}
+
+export function AlertOverlay({ alert, onDismiss, isNightMode }: AlertOverlayProps) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
     if (!alert) return;
 
-    // Clear any previous timer whenever a new alert arrives
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current);
-    }
+    // Clear any previous timers
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
+    if (countdownRef.current !== null) clearInterval(countdownRef.current);
 
     const duration = alert.visual === 'amarelo' ? YELLOW_DURATION_MS : RED_DURATION_MS;
+    const seconds = Math.round(duration / 1000);
+
+    // Vibrate
+    vibrate(alert.visual === 'amarelo' ? VIB_ETAPA1 : VIB_ETAPA2);
+
+    // Countdown
+    setCountdown(seconds);
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          if (countdownRef.current !== null) clearInterval(countdownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // Auto-dismiss
     timerRef.current = setTimeout(() => {
       onDismiss();
     }, duration);
 
     return () => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      if (countdownRef.current !== null) clearInterval(countdownRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [alert]);
 
   if (!alert) return null;
+
+  const icon = tipoIcon(alert.tipo);
 
   if (alert.visual === 'amarelo') {
     return (
@@ -47,7 +98,9 @@ export function AlertOverlay({ alert, onDismiss }: AlertOverlayProps) {
         aria-live="assertive"
         aria-atomic="true"
       >
-        {alert.mensagem}
+        <span className="alert-icon">{icon}</span>
+        <span className="alert-message">{alert.mensagem}</span>
+        <span className="alert-countdown">{countdown}s</span>
       </div>
     );
   }
@@ -55,12 +108,14 @@ export function AlertOverlay({ alert, onDismiss }: AlertOverlayProps) {
   // vermelho_piscando
   return (
     <div
-      className="alert-overlay-red"
+      className={`alert-overlay-red${isNightMode ? ' alert-overlay-red--night' : ''}`}
       role="alert"
       aria-live="assertive"
       aria-atomic="true"
     >
+      <span className="alert-overlay-red__icon">{icon}</span>
       <p className="alert-overlay-red__message">{alert.mensagem}</p>
+      <span className="alert-overlay-red__countdown">{countdown}s</span>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import type { AppSettings, UserPoint } from '../types';
 
 const DEFAULTS: AppSettings = {
   tiposAtivos: ['RF', 'RM', 'SR', 'SC', 'PRv', 'LOM'],
-  vozAtiva: true,
+  vozAtiva: false,
   volume: 0.8,
   manterTela: true,
   avisarAcimaLimite: false,

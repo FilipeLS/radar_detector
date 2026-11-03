@@ -95,12 +95,29 @@
   font-size: 18px;
   font-weight: 700;
   color: #f5c518;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.home__next-icon {
+  font-size: 22px;
+  line-height: 1;
 }
 
 .home__next-detail {
   font-size: 16px;
   color: #9ca3af;
   margin-top: 4px;
+}
+
+.home__next-countdown {
+  font-size: 15px;
+  color: #f5c518cc;
+  margin-top: 6px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 .home__next-empty {

@@ -2,12 +2,33 @@
 // Displays speed, next-point info, Start/Stop and Marcar Radar buttons.
 // Inline bottom sheet for marking a new radar point (R7, Step 3).
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { AlertEvent } from '../lib/alertEngine';
 import type { AppSettings, UserPoint } from '../types';
 import { saveUserPoints } from '../services/storage';
 import { AlertOverlay } from './AlertOverlay';
 import './Home.css';
+
+// Emoji icon per radar type (used in next-point block)
+const TIPO_ICON: Record<string, string> = {
+  RF:  '📷',
+  RM:  '📷',
+  SR:  '🚦',
+  SC:  '🚦',
+  PRv: '🚔',
+  PED: '🛣️',
+  LOM: '〰️',
+};
+
+function tipoIcon(tipo: string): string {
+  return TIPO_ICON[tipo] ?? '⚠️';
+}
+
+// Night mode: between 20:00 and 06:00
+function isNightHour(): boolean {
+  const h = new Date().getHours();
+  return h >= 20 || h < 6;
+}
 
 const TIPOS = ['RF', 'RM', 'SR', 'SC', 'PRv', 'LOM'] as const;
 type TipoRadar = (typeof TIPOS)[number];
@@ -48,6 +69,13 @@ export function Home({
   const [selectedTipo, setSelectedTipo] = useState<TipoRadar>('RF');
   const [limitInput, setLimitInput] = useState('');
   const [sheetError, setSheetError] = useState('');
+  const [isNightMode, setIsNightMode] = useState(isNightHour);
+
+  // Re-check night mode every minute
+  useEffect(() => {
+    const timer = setInterval(() => setIsNightMode(isNightHour()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const isMock = import.meta.env.VITE_MOCK_GPS === 'true';
 
@@ -94,7 +122,7 @@ export function Home({
 
   return (
     <div className="home">
-      <AlertOverlay alert={visualAlert} onDismiss={onDismissAlert} />
+      <AlertOverlay alert={visualAlert} onDismiss={onDismissAlert} isNightMode={isNightMode} />
 
       {/* Top status bar */}
       <div className="home__status-bar">
@@ -117,13 +145,22 @@ export function Home({
       <div className="home__next-block">
         {nextEvent ? (
           <>
-            <div className="home__next-tipo">Próximo: {nextEvent.tipo}</div>
+            <div className="home__next-tipo">
+              <span className="home__next-icon">{tipoIcon(nextEvent.tipo)}</span>
+              {nextEvent.tipo}
+            </div>
             <div className="home__next-detail">
               {nextEvent.limiteKmh && nextEvent.limiteKmh > 0
                 ? `Limite ${nextEvent.limiteKmh} km/h · `
                 : ''}
               ~{roundToNearest50(nextEvent.distM)} m
             </div>
+            {/* Countdown: show "Radar em X… X-1… 1…" only when close (etapa 1 ou 2) */}
+            {nextEvent.distM <= 1200 && (
+              <div className="home__next-countdown">
+                ⏱ {Math.max(1, Math.round(nextEvent.distM / (Math.max(currentPos?.velKmh ?? 60, 15) / 3.6)))}s
+              </div>
+            )}
           </>
         ) : (
           <div className="home__next-empty">—</div>
