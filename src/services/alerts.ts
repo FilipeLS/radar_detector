@@ -4,7 +4,7 @@
 import { AlertEngine } from '../lib/alertEngine';
 import type { AlertEvent, DatasetJson } from '../lib/alertEngine';
 import type { AppSettings } from '../types';
-import { playAlert } from './audio';
+import { playAlert, speak, playAlarm } from './audio';
 
 export type { AlertEvent };
 
@@ -29,10 +29,27 @@ export class AlertDispatcher {
     const events = this.engine.atualizar(pos);
     // Engine returns at most 1 event per call — no extra deduplication needed
     for (const ev of events) {
-      // Fire audio (non-blocking; errors are swallowed inside playAlert)
+      // Fire proximity alert audio (non-blocking; errors swallowed inside playAlert)
       void playAlert(ev.som, ev.mensagem, this.settings.vozAtiva, this.settings.volume);
 
-      // Always pass visual alert to UI; UI can use ev.acimaDoLimite to decide display
+      // R6: when "avisar também quando acima do limite" is enabled, fire an extra
+      // audio cue if the driver is already over the speed limit at this checkpoint.
+      if (this.settings.avisarAcimaLimite && ev.acimaDoLimite) {
+        void (async () => {
+          try {
+            const limMsg = `Você está acima do limite de ${ev.limiteKmh} km/h`;
+            if (this.settings.vozAtiva) {
+              await speak(limMsg, this.settings.volume);
+            } else {
+              await playAlarm();
+            }
+          } catch {
+            // Extra cue failing must never silence the primary alert
+          }
+        })();
+      }
+
+      // Pass visual alert to UI
       if (ev.visual) {
         this.onVisualAlert(ev);
       }
